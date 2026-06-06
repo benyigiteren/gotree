@@ -68,7 +68,11 @@ func LoadTemplates(fs embed.FS) error {
 				return template.HTML(svg)
 			}
 
-			// Fallback to standard Lucide
+			if path, ok := extraIcons[iconName]; ok {
+				svg := `<svg class="` + classList + `" fill="currentColor" viewBox="0 0 24 24"><path d="` + path + `"/></svg>`
+				return template.HTML(svg)
+			}
+
 			return template.HTML(fmt.Sprintf(`<i data-lucide="%s" class="%s"></i>`, iconName, classList))
 		},
 	}
