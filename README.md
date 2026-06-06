@@ -1,4 +1,4 @@
-# Biolink: Self-Hosted Minimalist Biyografi Platformu
+# GoTREE: Self-Hosted Minimalist Linktree Alternatif Açık Kaynak Biyografi Platformu
 
 Biolink, Linktree benzeri, minimalist tasarımlı, ultra hızlı ve sunucuda **25MB RAM altında çalışacak şekilde optimize edilmiş** self-hosted bir biyografi platformudur. Tüm statik varlıkları (`templates` ve `static` dosyaları) derleme aşamasında binary içerisine gömdüğü (`go:embed`) için tek bir dosya halinde taşınabilir ve anında yayına alınabilir (Deploy-ready).
 
