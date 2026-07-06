@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  gotree:
+    build: .
+    container_name: gotree_app
+    ports:
+      - "1907:1907"
+    volumes:
+      - gotree_data:/app/data
+      - gotree_uploads:/app/uploads
+    environment:
+      - PORT=1907
+      - DB_PATH=/app/data/gotree.db
+    restart: unless-stopped
+
+volumes:
+  gotree_data:
+  gotree_uploads:
