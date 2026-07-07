@@ -159,9 +159,3 @@ func UpdatePassword(userID int64, newPasswordHash string) error {
 	_, err := DB.Exec("UPDATE users SET password_hash = ? WHERE id = ?", newPasswordHash, userID)
 	return err
 }
-
-// InvalidateUserSessions kullanıcının tüm açık oturumlarını sonlandırır.
-func InvalidateUserSessions(userID int64) error {
-	_, err := DB.Exec("DELETE FROM sessions WHERE user_id = ?", userID)
-	return err
-}

@@ -1,5 +1,5 @@
 # 1. Aşama: Derleme (Build Stage)
-FROM golang:1.26-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
@@ -27,17 +27,11 @@ WORKDIR /app
 # Zaman dilimi ve SSL sertifikalarını kur
 RUN apk add --no-cache ca-certificates tzdata
 
-# Uygulamayı çalıştıracak non-root kullanıcıyı oluştur
-RUN adduser -D -u 1001 gotree
-
 # Derlenen uygulamayı kopyala (templates/static embed edilmiş)
 COPY --from=builder /app/gotree .
 
 # SQLite veritabanı ve profil resimleri için kalıcı dizinler oluştur
-RUN mkdir -p /app/data /app/uploads && \
-    chown -R gotree:gotree /app
-    
-USER gotree
+RUN mkdir -p /app/data /app/uploads
 
 # Ortam Değişkenleri
 ENV PORT=1907

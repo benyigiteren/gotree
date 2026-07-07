@@ -125,12 +125,6 @@ func RedirectHandler(w http.ResponseWriter, r *http.Request) {
 	if platform == "" {
 		// Standart Link yönlendirmesi
 		if blockType == "link" && content != "" {
-			lowerURL := strings.ToLower(content)
-			if !strings.HasPrefix(lowerURL, "http://") && !strings.HasPrefix(lowerURL, "https://") {
-				http.Error(w, "Geçersiz yönlendirme adresi", http.StatusBadRequest)
-				return
-			}
-
 			_ = db.IncrementBlockClicks(id)
 			
 			var pageID int64
@@ -282,10 +276,8 @@ func sendNotifications(settingsJson string, name, email, message string) {
 
 	// 1. Discord Webhook
 	if settings.DiscordWebhookURL != "" {
-		if strings.HasPrefix(settings.DiscordWebhookURL, "https://discord.com/api/webhooks/") {
-			go func() {
-				client := &http.Client{Timeout: 5 * time.Second}
-				payload := map[string]interface{}{
+		go func() {
+			payload := map[string]interface{}{
 				"embeds": []map[string]interface{}{
 					{
 						"title": "📩 Yeni Gotree Form Mesajı",
@@ -301,19 +293,17 @@ func sendNotifications(settingsJson string, name, email, message string) {
 			}
 			data, err := json.Marshal(payload)
 			if err == nil {
-				resp, err := client.Post(settings.DiscordWebhookURL, "application/json", bytes.NewBuffer(data))
+				resp, err := http.Post(settings.DiscordWebhookURL, "application/json", bytes.NewBuffer(data))
 				if err == nil {
 					resp.Body.Close()
 				}
 			}
 		}()
-		}
 	}
 
 	// 2. Telegram Bot
 	if settings.TelegramBotToken != "" && settings.TelegramChatID != "" {
 		go func() {
-			client := &http.Client{Timeout: 5 * time.Second}
 			text := fmt.Sprintf("📩 *Yeni Gotree Form Mesajı!*\n\n👤 *İsim:* %s\n✉️ *E-posta:* %s\n💬 *Mesaj:* %s", name, email, message)
 			apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", settings.TelegramBotToken)
 			payload := map[string]string{
@@ -323,7 +313,7 @@ func sendNotifications(settingsJson string, name, email, message string) {
 			}
 			data, err := json.Marshal(payload)
 			if err == nil {
-				resp, err := client.Post(apiURL, "application/json", bytes.NewBuffer(data))
+				resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(data))
 				if err == nil {
 					resp.Body.Close()
 				}

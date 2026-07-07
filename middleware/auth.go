@@ -23,6 +23,8 @@ func Authenticate(next http.Handler) http.Handler {
 		var apiKey string
 		if headerKey := r.Header.Get("X-API-Key"); headerKey != "" {
 			apiKey = headerKey
+		} else if queryKey := r.URL.Query().Get("api_key"); queryKey != "" {
+			apiKey = queryKey
 		}
 
 		var user *db.User

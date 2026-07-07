@@ -106,7 +106,7 @@ func main() {
 	// Giriş & Çıkış İşlemleri
 	mux.HandleFunc("GET /login", handlers.LoginGet)
 	mux.HandleFunc("POST /login", handlers.LoginPost)
-	mux.HandleFunc("POST /logout", handlers.Logout)
+	mux.HandleFunc("GET /logout", handlers.Logout)
 
 	// Yönlendirme ve İstatistik İzleme
 	mux.HandleFunc("GET /r/{id}", handlers.RedirectHandler)
@@ -161,8 +161,8 @@ func main() {
 	// Biyografi Sayfaları (/{slug})
 	mux.HandleFunc("GET /{slug}", handlers.BioGet)
 
-	// Tüm istekleri kimlik doğrulama, rate-limiting, CSRF ve güvenlik başlıkları ara katmanından geçir
-	globalHandler := middleware.SecurityHeaders(middleware.CSRF(middleware.RateLimit(middleware.Authenticate(mux))))
+	// Tüm istekleri kimlik doğrulama ve rate-limiting ara katmanından geçir
+	globalHandler := middleware.RateLimit(middleware.Authenticate(mux))
 
 	log.Printf("Gotree sunucusu :%s portunda dinleniyor...", port)
 	if err := http.ListenAndServe(":"+port, globalHandler); err != nil {

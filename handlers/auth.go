@@ -54,11 +54,6 @@ func SetupPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(password) < 6 {
-		RenderTemplate(w, "setup.html", AuthViewModel{Error: "Şifre en az 6 karakter olmalı."})
-		return
-	}
-
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		RenderTemplate(w, "setup.html", AuthViewModel{Error: "Şifre işlenirken hata oluştu."})
@@ -66,31 +61,13 @@ func SetupPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// İlk kayıt olan kullanıcı role = 'superadmin' olur.
-	userId, err := db.CreateUser(username, string(hashedBytes), "superadmin")
+	_, err = db.CreateUser(username, string(hashedBytes), "superadmin")
 	if err != nil {
 		RenderTemplate(w, "setup.html", AuthViewModel{Error: "Yönetici oluşturulurken hata: " + err.Error()})
 		return
 	}
 
-	// 24 saat geçerli oturum oluştur
-	token, err := db.CreateSession(userId, 24*time.Hour)
-	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	// Çerez ayarla
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_token",
-		Value:    token,
-		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour),
-		HttpOnly: true,
-		Secure:   false, // Canlıda true olmalı
-		SameSite: http.SameSiteStrictMode,
-	})
-
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 // LoginGet giriş ekranını gösterir.
@@ -144,8 +121,8 @@ func LoginPost(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: true,
-		Secure:   false, // Canlıda true olmalı
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false, // HTTP üzerinden de yerelde çalışabilmesi için false
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
@@ -238,21 +215,6 @@ func ProfileUpdatePost(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"error": "Şifre güncellenemedi"})
 			return
 		}
-
-		// Şifre değiştiği için tüm oturumları sonlandır (güvenlik)
-		_ = db.InvalidateUserSessions(user.ID)
-
-		// Yeni oturum oluştur ve çereze yaz
-		token, _ := db.CreateSession(user.ID, 24*time.Hour)
-		http.SetCookie(w, &http.Cookie{
-			Name:     "session_token",
-			Value:    token,
-			Path:     "/",
-			Expires:  time.Now().Add(24 * time.Hour),
-			HttpOnly: true,
-			Secure:   false, // Canlıda true olmalı
-			SameSite: http.SameSiteStrictMode,
-		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -40,7 +40,8 @@ func APIHelp(w http.ResponseWriter, r *http.Request) {
 		"auth": map[string]interface{}{
 			"method":      "API Key veya Oturum Cerezi",
 			"header":      "X-API-Key: <api_key>",
-			"description": "API istekleri icin X-API-Key header'i gereklidir. API anahtarinizi yonetim panelinden (Admin > API Ayarlari) gorebilir ve yeniden olusturabilirsiniz. Oturum cerezi (session cookie) ile de dogrulama yapilabilir.",
+			"query":       "?api_key=<api_key>",
+			"description": "API istekleri icin X-API-Key header'i veya ?api_key query parametresi gereklidir. API anahtarinizi yonetim panelinden (Admin > API Ayarlari) gorebilir ve yeniden olusturabilirsiniz. Oturum cerezi (session cookie) ile de dogrulama yapilabilir.",
 		},
 		"rate_limiting": map[string]interface{}{
 			"enabled":     true,
@@ -335,23 +336,6 @@ func APIGetPublicProfile(w http.ResponseWriter, r *http.Request) {
 	blocks, err := db.GetBlocks(page.ID)
 	if err != nil {
 		blocks = []db.Block{}
-	}
-
-	// Hassas bilgileri (webhook, smtp) form bloklarından temizle
-	for i := range blocks {
-		if blocks[i].Type == "form" && blocks[i].Content != "" {
-			var formConfig map[string]interface{}
-			if err := json.Unmarshal([]byte(blocks[i].Content), &formConfig); err == nil {
-				// Hassas alanları sil
-				delete(formConfig, "discord_webhook_url")
-				delete(formConfig, "email_to")
-				delete(formConfig, "email_subject")
-				// Temizlenmiş içeriği geri yaz
-				if cleanContent, err := json.Marshal(formConfig); err == nil {
-					blocks[i].Content = string(cleanContent)
-				}
-			}
-		}
 	}
 
 	type PublicPage struct {
@@ -927,8 +911,8 @@ func APIGetAnalytics(w http.ResponseWriter, r *http.Request) {
 // APIGetSystemStats returns system health and metrics (uptime, memory, database size, total counts)
 func APIGetSystemStats(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserContext(r)
-	if user == nil || user.Role != "superadmin" {
-		w.WriteHeader(http.StatusForbidden)
+	if user == nil {
+		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Yetkisiz işlem"})
 		return
 	}
@@ -959,6 +943,9 @@ func APIGetSystemStats(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"system": map[string]interface{}{
 			"uptime":      uptime,
+			"go_version":  runtime.Version(),
+			"num_cpu":     runtime.NumCPU(),
+			"goroutines":  runtime.NumGoroutine(),
 			"ram_used_mb": fmt.Sprintf("%.2f MB", ramUsed),
 			"db_size_kb":  dbSize / 1024,
 		},
@@ -994,19 +981,6 @@ func APIDeleteFormSubmission(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Geçersiz id"})
-		return
-	}
-
-	// Sahiplik kontrolü
-	var pageUserID int64
-	err = db.DB.QueryRow(
-		"SELECT p.user_id FROM form_submissions fs JOIN pages p ON fs.page_id = p.id WHERE fs.id = ?",
-		id,
-	).Scan(&pageUserID)
-	
-	if err != nil || pageUserID != user.ID {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Bu mesajı silme yetkiniz yok"})
 		return
 	}
 

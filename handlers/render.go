@@ -33,16 +33,7 @@ func LoadTemplates(fs embed.FS) error {
 			if iconName == "" {
 				return ""
 			}
-			
-			// XSS koruması
-			iconName = template.HTMLEscapeString(iconName)
-			classList = template.HTMLEscapeString(classList)
-
 			if len(iconName) >= 9 && iconName[:9] == "/uploads/" {
-				// Path traversal engelleme
-				if strings.Contains(iconName, "..") {
-					return ""
-				}
 				return template.HTML(fmt.Sprintf(`<img src="%s" class="%s object-cover rounded-md flex-shrink-0" alt="" />`, iconName, classList))
 			}
 
@@ -125,8 +116,6 @@ func RenderTemplate(w http.ResponseWriter, page string, data interface{}) {
 	}
 
 	if err != nil {
-		// Hassas hata mesajlarını logla, kullanıcıya genel mesaj dön
-		fmt.Println("Template error:", err)
-		http.Error(w, "Şablon çizim hatası oluştu.", http.StatusInternalServerError)
+		http.Error(w, "Şablon çizim hatası: "+err.Error(), http.StatusInternalServerError)
 	}
 }

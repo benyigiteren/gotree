@@ -6,8 +6,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <style>
-    [x-cloak] { display: none !important; }
-    
     /* Custom torn paper border for skater_peach */
     .skater-border {
         clip-path: polygon(
@@ -79,12 +77,6 @@ document.addEventListener('alpine:init', () => {
             }, { deep: true });
             this.$watch('showIconModal', value => {
                 if (value) {
-                    if (window.lucide && window.lucide.icons) {
-                        const lucideIcons = Object.keys(window.lucide.icons).map(name => {
-                            return name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-                        });
-                        this.iconList = Array.from(new Set([...this.iconList, ...lucideIcons, ...this.socialIconList])).sort();
-                    }
                     this.$nextTick(() => {
                         if (window.lucide) window.lucide.createIcons();
                     });
@@ -318,22 +310,6 @@ document.addEventListener('alpine:init', () => {
             this.blocks.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
         },
 
-        renderIconInAdmin(iconName, classes) {
-            if (!iconName) return '';
-            if (iconName.startsWith('/uploads/')) {
-                return `<img src="${iconName}" class="${classes} object-cover rounded-md flex-shrink-0" alt="" />`;
-            }
-            if (this.socialBrandSvgs[iconName]) {
-                let svg = this.socialBrandSvgs[iconName];
-                svg = svg.replace('class="', `class="${classes} `);
-                if (!svg.includes('class="')) {
-                    svg = svg.replace('<svg', `<svg class="${classes}"`);
-                }
-                return svg;
-            }
-            return `<i data-lucide="${iconName}" class="${classes}"></i>`;
-        },
-
         async saveReorder() {
             this.saveStatus = 'Kaydediliyor...';
             const container = document.getElementById('block-list-container');
@@ -502,34 +478,20 @@ document.addEventListener('alpine:init', () => {
     }));
 
     Alpine.data('cropperModal', () => ({
-        showCropper: false,
+        show: false,
         title: 'Görseli Kırp',
         imageElement: null,
         cropper: null,
         aspectRatio: 1,
         callback: null,
         saving: false,
-        mimeType: 'image/jpeg',
 
         open(options) {
             this.title = options.title || 'Görseli Kırp';
             this.aspectRatio = options.aspectRatio !== undefined ? options.aspectRatio : 1;
             this.callback = options.callback;
-            this.showCropper = true;
+            this.show = true;
             this.saving = false;
-
-            // Detect MIME type to preserve transparency for PNG/WebP
-            let detectedMimeType = 'image/jpeg';
-            if (options.imageSrc && options.imageSrc.startsWith('data:')) {
-                const match = options.imageSrc.match(/^data:([^;]+);/);
-                if (match) {
-                    const type = match[1];
-                    if (type === 'image/png' || type === 'image/webp' || type === 'image/gif' || type === 'image/svg+xml') {
-                        detectedMimeType = type === 'image/webp' ? 'image/webp' : 'image/png';
-                    }
-                }
-            }
-            this.mimeType = detectedMimeType;
 
             this.$nextTick(() => {
                 const img = document.getElementById('cropper-target-image');
@@ -560,21 +522,12 @@ document.addEventListener('alpine:init', () => {
             if (!this.cropper) return;
             this.saving = true;
 
-            const canvasOptions = {
+            const canvas = this.cropper.getCroppedCanvas({
+                width: 800,
+                height: 800,
                 imageSmoothingEnabled: true,
                 imageSmoothingQuality: 'high'
-            };
-
-            // Use width/height only for square avatars, use max limits for other aspect ratios to preserve shape
-            if (this.aspectRatio === 1) {
-                canvasOptions.width = 800;
-                canvasOptions.height = 800;
-            } else {
-                canvasOptions.maxWidth = 1200;
-                canvasOptions.maxHeight = 1200;
-            }
-
-            const canvas = this.cropper.getCroppedCanvas(canvasOptions);
+            });
 
             if (!canvas) {
                 this.saving = false;
@@ -585,7 +538,7 @@ document.addEventListener('alpine:init', () => {
             canvas.toBlob(blob => {
                 if (blob) {
                     if (this.callback) {
-                        Promise.resolve(this.callback(blob, this.mimeType)).then(() => {
+                        Promise.resolve(this.callback(blob)).then(() => {
                             this.close();
                         }).catch(err => {
                             alert('Kayıt başarısız: ' + err.message);
@@ -598,7 +551,7 @@ document.addEventListener('alpine:init', () => {
                     this.saving = false;
                     alert('Blob oluşturulamadı.');
                 }
-            }, this.mimeType, this.mimeType === 'image/jpeg' ? 0.85 : undefined);
+            }, 'image/jpeg', 0.85);
         },
 
         close() {
@@ -606,7 +559,7 @@ document.addEventListener('alpine:init', () => {
                 this.cropper.destroy();
                 this.cropper = null;
             }
-            this.showCropper = false;
+            this.show = false;
             this.saving = false;
         }
     }));
@@ -701,11 +654,9 @@ document.addEventListener('alpine:init', () => {
                 </div>
 
                 <!-- Çıkış Butonu (Sadece Masaüstü) -->
-                <form action="/logout" method="POST" class="inline m-0 p-0">
-                    <button type="submit" class="hidden md:inline-flex text-xs bg-[#FAF7F2] hover:bg-neutral-100 text-neutral-700 px-3.5 py-1.5 rounded-xl border border-[#EAE6DF] transition-all font-semibold cursor-pointer">
-                        Çıkış Yap
-                    </button>
-                </form>
+                <a href="/logout" class="hidden md:inline-flex text-xs bg-[#FAF7F2] hover:bg-neutral-100 text-neutral-700 px-3.5 py-1.5 rounded-xl border border-[#EAE6DF] transition-all font-semibold cursor-pointer">
+                    Çıkış
+                </a>
             </div>
         </div>
     </header>
@@ -805,14 +756,10 @@ document.addEventListener('alpine:init', () => {
                         </div>
                         <svg class="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     </button>
-                    <form action="/logout" method="POST" class="m-0 p-0 w-full">
-                        <button type="submit" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 text-neutral-500 hover:text-red-600 transition-all text-left">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                            <span class="font-medium">Çıkış Yap</span>
-                        </button>
-                    </form>
+                    <a href="/logout" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 text-neutral-500 hover:text-red-600 transition-all">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                        <span class="text-sm font-medium">Çıkış Yap</span>
+                    </a>
                 </div>
             </div>
         </div>
@@ -911,11 +858,10 @@ document.addEventListener('alpine:init', () => {
                                                             title: 'Profil Resmini Kırp',
                                                             imageSrc: e.target.result,
                                                             aspectRatio: 1,
-                                                            callback: (blob, mimeType) => {
+                                                            callback: (blob) => {
                                                                 avatarUploading = true;
                                                                 const fd = new FormData();
-                                                                const ext = mimeType === 'image/png' ? '.png' : (mimeType === 'image/webp' ? '.webp' : '.jpg');
-                                                                fd.append('avatar', blob, 'avatar' + ext);
+                                                                fd.append('avatar', blob, 'avatar.jpg');
                                                                 return fetch('/admin/page/upload-avatar', { method: 'POST', body: fd })
                                                                     .then(r => r.json())
                                                                     .then(d => {
@@ -969,12 +915,11 @@ document.addEventListener('alpine:init', () => {
                                                         detail: {
                                                             title: 'Arka Plan Resmini Kırp',
                                                             imageSrc: e.target.result,
-                                                            aspectRatio: NaN,
-                                                            callback: (blob, mimeType) => {
+                                                            aspectRatio: 16/9,
+                                                            callback: (blob) => {
                                                                 bgUploading = true;
                                                                 const fd = new FormData();
-                                                                const ext = mimeType === 'image/png' ? '.png' : (mimeType === 'image/webp' ? '.webp' : '.jpg');
-                                                                fd.append('background_image', blob, 'background' + ext);
+                                                                fd.append('background_image', blob, 'background.jpg');
                                                                 return fetch('/admin/page/upload-bg', { method: 'POST', body: fd })
                                                                     .then(r => r.json())
                                                                     .then(d => {
@@ -1220,7 +1165,7 @@ document.addEventListener('alpine:init', () => {
                                         <!-- Blok İkon Önizleme -->
                                         <div class="w-8 h-8 rounded-xl bg-[#FAF7F2] border border-[#EAE6DF] flex items-center justify-center text-neutral-700 flex-shrink-0">
                                             <template x-if="icon && !icon.startsWith('/uploads/')">
-                                                <span x-html="renderIconInAdmin(icon, 'w-4 h-4')" style="display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center;"></span>
+                                                <i :data-lucide="icon" class="w-4 h-4"></i>
                                             </template>
                                             <template x-if="icon && icon.startsWith('/uploads/')">
                                                 <img :src="icon" class="w-6 h-6 object-cover rounded">
@@ -1319,7 +1264,7 @@ document.addEventListener('alpine:init', () => {
                                                         <span class="flex items-center gap-2 truncate">
                                                             <template x-if="icon && !icon.startsWith('/uploads/')">
                                                                 <span class="flex items-center gap-1.5 text-xs font-semibold text-neutral-800">
-                                                                    <span x-html="renderIconInAdmin(icon, 'inline-block text-neutral-700 flex-shrink-0')" style="display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center;"></span>
+                                                                    <i :data-lucide="icon" class="inline-block text-neutral-700 flex-shrink-0" style="width: 14px; height: 14px;"></i>
                                                                     <span x-text="icon" class="truncate"></span>
                                                                 </span>
                                                             </template>
@@ -1361,12 +1306,11 @@ document.addEventListener('alpine:init', () => {
                                                                         title: 'Blok Görselini Kırp',
                                                                         imageSrc: e.target.result,
                                                                         aspectRatio: iconSize === 'banner' ? 16/9 : (iconSize === 'large' ? 1 : 1),
-                                                                        callback: (blob, mimeType) => {
+                                                                        callback: (blob) => {
                                                                             uploading = true;
                                                                             const fd = new FormData();
-                                                                            const ext = mimeType === 'image/png' ? '.png' : (mimeType === 'image/webp' ? '.webp' : '.jpg');
                                                                             fd.append('id', id);
-                                                                            fd.append('image', blob, 'block' + ext);
+                                                                            fd.append('image', blob, 'block.jpg');
                                                                             return fetch('/admin/block/upload-image', {
                                                                                 method: 'POST',
                                                                                 body: fd
@@ -1885,7 +1829,7 @@ document.addEventListener('alpine:init', () => {
                                                                     <img :src="block.icon" class="w-4 h-4 object-cover rounded flex-shrink-0">
                                                                 </template>
                                                                 <template x-if="!block.icon.startsWith('/uploads/')">
-                                                                    <span x-html="renderIconInAdmin(block.icon, 'inline-block text-current')" style="display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center;"></span>
+                                                                    <i :data-lucide="block.icon" class="inline-block text-current" style="width: 14px; height: 14px;"></i>
                                                                 </template>
                                                             </span>
                                                         </template>
@@ -3100,7 +3044,7 @@ document.addEventListener('alpine:init', () => {
                             <button type="button" @click="selectIcon(iconName)"
                                 class="flex flex-col items-center justify-center p-2 rounded-xl bg-white border border-[#EAE6DF] hover:border-neutral-900 hover:bg-neutral-50 transition-all gap-1 text-[9px] font-bold text-neutral-800 cursor-pointer"
                                 :class="selectedIcon === iconName ? 'border-neutral-950 bg-neutral-50 shadow-sm ring-1 ring-neutral-950' : ''">
-                                <span x-html="renderIconInAdmin(iconName, 'text-neutral-800')" style="display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center;"></span>
+                                <i :data-lucide="iconName" class="text-neutral-800" style="width: 18px; height: 18px;"></i>
                                 <span x-text="iconName" class="truncate max-w-full text-center"></span>
                             </button>
                         </template>
@@ -3368,7 +3312,7 @@ document.addEventListener('alpine:init', () => {
                                                                 <img :src="block.icon" class="w-4 h-4 object-cover rounded flex-shrink-0">
                                                             </template>
                                                             <template x-if="!block.icon.startsWith('/uploads/')">
-                                                                <span x-html="renderIconInAdmin(block.icon, 'inline-block text-current')" style="display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center;"></span>
+                                                                <i :data-lucide="block.icon" class="inline-block text-current" style="width: 14px; height: 14px;"></i>
                                                             </template>
                                                         </span>
                                                     </template>
@@ -3766,6 +3710,7 @@ document.addEventListener('alpine:init', () => {
 
     </div>
 </div>
+</div>
 
 <!-- Profil Ayarları Modalı -->
 <div x-show="showProfileModal" 
@@ -3879,7 +3824,7 @@ document.addEventListener('alpine:init', () => {
 
 <!-- Görsel Kırpma Modalı (Cropper.js) -->
 <div x-data="cropperModal" 
-     x-show="showCropper" 
+     x-show="show" 
      @open-cropper.window="open($event.detail)"
      class="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
      x-transition:enter="transition ease-out duration-300"
@@ -3907,31 +3852,6 @@ document.addEventListener('alpine:init', () => {
             </div>
         </div>
         
-        <!-- Kırpma Oranları -->
-        <div class="px-6 py-2.5 bg-neutral-50 border-t border-[#EAE6DF] flex items-center justify-center gap-1.5 overflow-x-auto flex-wrap">
-            <span class="text-[10px] uppercase font-black text-neutral-400 mr-1">En Boy Oranı:</span>
-            <button type="button" @click="setAspectRatio(NaN)" 
-                class="px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer"
-                :class="isNaN(aspectRatio) ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' : 'bg-white border-[#EAE6DF] text-neutral-700 hover:bg-neutral-50'">
-                Serbest
-            </button>
-            <button type="button" @click="setAspectRatio(1)" 
-                class="px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer"
-                :class="aspectRatio === 1 ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' : 'bg-white border-[#EAE6DF] text-neutral-700 hover:bg-neutral-50'">
-                1:1 (Kare)
-            </button>
-            <button type="button" @click="setAspectRatio(9/16)" 
-                class="px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer"
-                :class="aspectRatio === 9/16 ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' : 'bg-white border-[#EAE6DF] text-neutral-700 hover:bg-neutral-50'">
-                9:16 (Dikey)
-            </button>
-            <button type="button" @click="setAspectRatio(16/9)" 
-                class="px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer"
-                :class="aspectRatio === 16/9 ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' : 'bg-white border-[#EAE6DF] text-neutral-700 hover:bg-neutral-50'">
-                16:9 (Yatay)
-            </button>
-        </div>
-        
         <!-- Modal Alt Çubuğu -->
         <div class="px-6 py-4 border-t border-[#EAE6DF] flex items-center justify-between bg-white">
             <button type="button" @click="close()" 
@@ -3950,7 +3870,6 @@ document.addEventListener('alpine:init', () => {
             </button>
         </div>
     </div>
-</div>
 </div>
 {{ end }}
 

@@ -305,7 +305,7 @@
                                 {{ if hasPrefix .Icon "/uploads/" }}
                                     <img src="{{ .Icon }}" class="w-6 h-6 object-cover rounded-md flex-shrink-0" alt="">
                                 {{ else }}
-                                    {{ renderIcon .Icon "w-5 h-5" }}
+                                    <i data-lucide="{{ .Icon }}" class="w-5 h-5"></i>
                                 {{ end }}
                             {{ end }}
                         </span>
@@ -943,10 +943,6 @@
                 
                 if(feedback) {
                     feedback.classList.remove('hidden');
-                    const accordion = form.closest('[id^="form-accordion-"]');
-                    if (accordion && accordion.style.maxHeight && accordion.style.maxHeight !== '0px') {
-                        accordion.style.maxHeight = 'none';
-                    }
                     if (res.ok) {
                         feedback.className = 'form-feedback text-[10px] font-semibold text-center p-2 rounded-xl bg-emerald-500/10 text-emerald-600 mt-3';
                         feedback.innerText = '✓ Mesajınız başarıyla gönderildi!';
@@ -963,21 +959,13 @@
             } catch (err) {
                 if(feedback) {
                     feedback.classList.remove('hidden');
-                    const accordion = form.closest('[id^="form-accordion-"]');
-                    if (accordion && accordion.style.maxHeight && accordion.style.maxHeight !== '0px') {
-                        accordion.style.maxHeight = 'none';
-                    }
                     feedback.className = 'form-feedback text-[10px] font-semibold text-center p-2 rounded-xl bg-red-500/10 text-red-600 mt-3';
                     feedback.innerText = 'Bağlantı hatası oluştu.';
                 }
             } finally {
                 button.innerHTML = originalText;
                 button.disabled = false;
-                if(feedback) {
-                    setTimeout(() => {
-                        feedback.classList.add('hidden');
-                    }, 6000);
-                }
+                if(feedback) setTimeout(() => feedback.classList.add('hidden'), 6000);
             }
         }
 
@@ -987,20 +975,11 @@
             if (!accordion) return;
             
             if (accordion.style.maxHeight && accordion.style.maxHeight !== '0px') {
-                if (accordion.style.maxHeight === 'none') {
-                    accordion.style.maxHeight = accordion.scrollHeight + 'px';
-                    accordion.offsetHeight; // force reflow
-                }
                 accordion.style.maxHeight = '0px';
                 if (chevron) chevron.classList.remove('rotate-180');
             } else {
                 accordion.style.maxHeight = accordion.scrollHeight + 'px';
                 if (chevron) chevron.classList.add('rotate-180');
-                setTimeout(() => {
-                    if (accordion.style.maxHeight !== '0px') {
-                        accordion.style.maxHeight = 'none';
-                    }
-                }, 500);
             }
         }
 

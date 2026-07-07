@@ -35,42 +35,6 @@
     <main class="flex-grow flex flex-col relative z-10">
         {{ template "content" . }}
     </main>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const getCSRFToken = () => {
-                const match = document.cookie.match(/(?:^|;) ?csrf_token=([^;]*)(?:;|$)/);
-                return match ? match[1] : '';
-            };
-            const token = getCSRFToken();
-            if (token) {
-                // Formlara gizli input ekle
-                document.querySelectorAll('form').forEach(form => {
-                    if (form.method && form.method.toUpperCase() !== 'GET') {
-                        let input = form.querySelector('input[name="csrf_token"]');
-                        if (!input) {
-                            input = document.createElement('input');
-                            input.type = 'hidden';
-                            input.name = 'csrf_token';
-                            form.appendChild(input);
-                        }
-                        input.value = token;
-                    }
-                });
-                // fetch API'yi override et
-                const originalFetch = window.fetch;
-                window.fetch = function() {
-                    let [resource, config] = arguments;
-                    if (!config) config = {};
-                    if (config.method && config.method.toUpperCase() !== 'GET') {
-                        config.headers = config.headers || {};
-                        config.headers['X-CSRF-Token'] = token;
-                    }
-                    return originalFetch(resource, config);
-                };
-            }
-        });
-    </script>
 </body>
 </html>
 {{ end }}

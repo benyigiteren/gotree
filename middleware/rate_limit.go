@@ -3,7 +3,6 @@ package middleware
 import (
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -53,16 +52,13 @@ func RateLimit(next http.Handler) http.Handler {
 			ip = r.RemoteAddr
 		}
 
-		// Sadece açıkça güvenilir bir proxy arkasında olduğumuz belirtilmişse proxy header'larını kabul et
-		// (IP spoofing'i engeller)
-		if os.Getenv("TRUST_PROXY") == "true" {
-			if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
-				ip = cfIP
-			} else if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-				parts := strings.Split(xff, ",")
-				if len(parts) > 0 {
-					ip = strings.TrimSpace(parts[0])
-				}
+		// Support Cloudflare or proxy headers
+		if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+			ip = cfIP
+		} else if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if len(parts) > 0 {
+				ip = strings.TrimSpace(parts[0])
 			}
 		}
 

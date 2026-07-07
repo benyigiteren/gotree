@@ -9,15 +9,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
-
-var slugRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$`)
 
 // AdminViewModel admin paneli görünüm verisidir.
 type AdminViewModel struct {
@@ -106,8 +103,8 @@ func PageCreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slug := r.FormValue("slug")
-	if slug == "" || !slugRegex.MatchString(slug) {
-		http.Redirect(w, r, "/admin?error=Geçersiz+slug+formatı", http.StatusSeeOther)
+	if slug == "" {
+		http.Redirect(w, r, "/admin?error=Slug+alanı+boş+bırakılamaz", http.StatusSeeOther)
 		return
 	}
 
@@ -135,8 +132,6 @@ func PageCreatePost(w http.ResponseWriter, r *http.Request) {
 
 // PageUpdatePost sayfa genel bilgilerini günceller.
 func PageUpdatePost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
-
 	user := middleware.GetUserContext(r)
 	if user == nil {
 		http.Error(w, "Yetkisiz işlem", http.StatusUnauthorized)
@@ -160,11 +155,6 @@ func PageUpdatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !slugRegex.MatchString(slug) {
-		http.Redirect(w, r, "/admin?error=Geçersiz+slug+formatı", http.StatusSeeOther)
-		return
-	}
-
 	// Başka birinin slug'ını işgal etmediğini kontrol et
 	existing, _ := db.GetPageBySlug(slug)
 	if existing != nil && existing.ID != page.ID {
@@ -177,19 +167,17 @@ func PageUpdatePost(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("avatar")
 	if err == nil {
 		defer file.Close()
-		ext := strings.ToLower(filepath.Ext(header.Filename))
-		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" {
-			filename := fmt.Sprintf("avatar_%d_%d%s", page.ID, time.Now().Unix(), ext)
-			
-			uploadPath := "./uploads"
-			_ = os.MkdirAll(uploadPath, 0755)
-	
-			out, err := os.Create(filepath.Join(uploadPath, filename))
-			if err == nil {
-				defer out.Close()
-				_, _ = io.Copy(out, file)
-				avatarURL = "/uploads/" + filename
-			}
+		ext := filepath.Ext(header.Filename)
+		filename := fmt.Sprintf("avatar_%d_%d%s", page.ID, time.Now().Unix(), ext)
+		
+		uploadPath := "./uploads"
+		_ = os.MkdirAll(uploadPath, 0755)
+
+		out, err := os.Create(filepath.Join(uploadPath, filename))
+		if err == nil {
+			defer out.Close()
+			_, _ = io.Copy(out, file)
+			avatarURL = "/uploads/" + filename
 		}
 	}
 
@@ -201,19 +189,17 @@ func PageUpdatePost(w http.ResponseWriter, r *http.Request) {
 		bgFile, bgHeader, err := r.FormFile("background_image")
 		if err == nil {
 			defer bgFile.Close()
-			ext := strings.ToLower(filepath.Ext(bgHeader.Filename))
-			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" {
-				filename := fmt.Sprintf("bg_%d_%d%s", page.ID, time.Now().Unix(), ext)
-	
-				uploadPath := "./uploads"
-				_ = os.MkdirAll(uploadPath, 0755)
-	
-				out, err := os.Create(filepath.Join(uploadPath, filename))
-				if err == nil {
-					defer out.Close()
-					_, _ = io.Copy(out, bgFile)
-					backgroundImageURL = "/uploads/" + filename
-				}
+			ext := filepath.Ext(bgHeader.Filename)
+			filename := fmt.Sprintf("bg_%d_%d%s", page.ID, time.Now().Unix(), ext)
+
+			uploadPath := "./uploads"
+			_ = os.MkdirAll(uploadPath, 0755)
+
+			out, err := os.Create(filepath.Join(uploadPath, filename))
+			if err == nil {
+				defer out.Close()
+				_, _ = io.Copy(out, bgFile)
+				backgroundImageURL = "/uploads/" + filename
 			}
 		}
 	}
@@ -269,11 +255,6 @@ func PageAutosave(w http.ResponseWriter, r *http.Request) {
 
 	// Slug güncelleme kontrolü
 	if req.Slug != "" && req.Slug != page.Slug {
-		if !slugRegex.MatchString(req.Slug) {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error":"Geçersiz slug formatı"}`))
-			return
-		}
 		existing, _ := db.GetPageBySlug(req.Slug)
 		if existing != nil {
 			w.WriteHeader(http.StatusConflict)
@@ -689,21 +670,15 @@ func BlockUploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
 	file, header, err := r.FormFile("image")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Dosya yüklenemedi veya çok büyük (Max 10MB)"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Dosya yüklenemedi"})
 		return
 	}
 	defer file.Close()
 
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" && ext != ".gif" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Yalnızca görsel dosyaları yüklenebilir"})
-		return
-	}
+	ext := filepath.Ext(header.Filename)
 	filename := fmt.Sprintf("block_%d_%d%s", id, time.Now().Unix(), ext)
 	uploadPath := "./uploads"
 	_ = os.MkdirAll(uploadPath, 0755)
@@ -761,11 +736,10 @@ func PageUploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
 	file, header, err := r.FormFile("avatar")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Dosya alınamadı veya çok büyük (Max 10MB)"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Dosya alınamadı"})
 		return
 	}
 	defer file.Close()
@@ -834,11 +808,10 @@ func PageUploadBg(w http.ResponseWriter, r *http.Request) {
 	if clearBg {
 		backgroundImageURL = ""
 	} else {
-		r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
 		file, header, err := r.FormFile("background_image")
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Dosya alınamadı veya çok büyük (Max 10MB)"})
+			json.NewEncoder(w).Encode(map[string]string{"error": "Dosya alınamadı"})
 			return
 		}
 		defer file.Close()
